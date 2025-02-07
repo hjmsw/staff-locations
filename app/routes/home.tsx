@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Route } from "./+types/home";
 import { PrismaClient } from "@prisma/client";
 
@@ -10,20 +11,35 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
-  const users = await prisma.user.findMany();
+async function getUsers() {
+  return await prisma.user.findMany();
+}
 
-  return users;
+export async function loader({ params }: Route.LoaderArgs) {
+  return await getUsers();
 } 
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const users = loaderData;
+  const { data, isLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: getUsers,
+    initialData: loaderData,
+  });
+
+  const queryClient = useQueryClient();
+
+  if (isLoading) {
+    return <>Loading...</>
+  }
 
   return (
-    <ul>
-      {users.map(user => (
-        <li>{user.name}</li>
-      ))}
-    </ul>
+    <>
+      <button type="button" onClick={() => queryClient.invalidateQueries({queryKey: ['users']})}>invalidate</button>
+      <ul>
+        {data?.map(user => (
+          <li key={user.id}>{user.name}</li>
+        ))}
+      </ul>
+    </>
   )
 }
