@@ -1,5 +1,7 @@
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -8,6 +10,20 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export default function Home() {
-  return <Welcome />;
+export async function loader({ params }: Route.LoaderArgs) {
+  const users = await prisma.user.findMany();
+
+  return users;
+} 
+
+export default function Home({ loaderData }: Route.ComponentProps) {
+  const users = loaderData;
+
+  return (
+    <ul>
+      {users.map(user => (
+        <li>{user.name}</li>
+      ))}
+    </ul>
+  )
 }
