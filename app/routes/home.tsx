@@ -1,45 +1,65 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { dehydrate, HydrationBoundary, QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Route } from "./+types/home";
 import { PrismaClient } from "@prisma/client";
+import { useLoaderData } from "react-router";
 
 const prisma = new PrismaClient();
 
-export function meta({}: Route.MetaArgs) {
+export const meta = ({}: Route.MetaArgs) => {
   return [
     { title: "New React Router App" },
     { name: "description", content: "Welcome to React Router!" },
   ];
 }
 
-async function getUsers() {
+const getUsers = async () => {
   return await prisma.user.findMany();
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
-  return await getUsers();
-} 
+export const loader = async ({ params }: Route.LoaderArgs) => {
+  const queryClient = new QueryClient()
 
-export default function Home({ loaderData }: Route.ComponentProps) {
-  const { data, isLoading } = useQuery({
+  await queryClient.prefetchQuery({
     queryKey: ['users'],
     queryFn: getUsers,
-    initialData: loaderData,
+  })
+
+  return { dehydratedState: dehydrate(queryClient) };
+}
+
+const UsersList = () => {
+  const { data, isFetching } = useQuery({
+    queryKey: ['users'],
+    queryFn: getUsers,
   });
 
   const queryClient = useQueryClient();
 
-  if (isLoading) {
-    return <>Loading...</>
+  if (isFetching) {
+    return <p>Fetching...</p>;
   }
 
   return (
     <>
-      <button type="button" onClick={() => queryClient.invalidateQueries({queryKey: ['users']})}>invalidate</button>
+      <button type="button" onClick={() => {
+        console.log('invalidating...');
+        queryClient.invalidateQueries({queryKey: ['users']})
+      }}>invalidate</button>
       <ul>
         {data?.map(user => (
           <li key={user.id}>{user.name}</li>
         ))}
       </ul>
     </>
+  )
+}
+
+export default function Home() {
+  const { dehydratedState } = useLoaderData<typeof loader>()
+
+  return (
+    <HydrationBoundary state={dehydratedState}>
+      <UsersList />
+    </HydrationBoundary>
   )
 }
